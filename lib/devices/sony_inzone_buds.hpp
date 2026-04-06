@@ -28,10 +28,10 @@ public:
     static constexpr uint16_t VENDOR_SONY = 0x054c;
     static constexpr std::array<uint16_t, 1> PRODUCT_IDS { 0x0ec2 };
 
-    static constexpr int     REPORT_SIZE       = 64;
-    static constexpr uint8_t BATTERY_TYPE      = 0x12;
-    static constexpr uint8_t BATTERY_SUBTYPE   = 0x04;
-    static constexpr int     MAX_READ_ATTEMPTS = 45;
+    static constexpr int REPORT_SIZE         = 64;
+    static constexpr uint8_t BATTERY_TYPE    = 0x12;
+    static constexpr uint8_t BATTERY_SUBTYPE = 0x04;
+    static constexpr int MAX_READ_ATTEMPTS   = 45;
 
     static constexpr int BYTE_RIGHT_EARBUD = 14;
     static constexpr int BYTE_LEFT_EARBUD  = 16;

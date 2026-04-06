@@ -20,8 +20,8 @@ namespace headsetcontrol {
 class LogitechGProX2Lightspeed : public HIDDevice {
 public:
     static constexpr std::array<uint16_t, 1> SUPPORTED_PRODUCT_IDS { 0x0af7 };
-    static constexpr size_t PACKET_SIZE                                        = 64;
-    static constexpr uint8_t REPORT_PREFIX                                     = 0x51;
+    static constexpr size_t PACKET_SIZE    = 64;
+    static constexpr uint8_t REPORT_PREFIX = 0x51;
 
     constexpr uint16_t getVendorId() const override
     {

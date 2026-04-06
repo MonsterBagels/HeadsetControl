@@ -137,8 +137,8 @@ public:
         }
 
         // Chatmix values at bytes 9 and 10, range 0-19
-        int game = map(response[9], 0, 19, 0, 64);
-        int chat = map(response[10], 0, 19, 0, -64);
+        int game  = map(response[9], 0, 19, 0, 64);
+        int chat  = map(response[10], 0, 19, 0, -64);
         int level = 64 - (chat + game);
 
         // Calculate percentages

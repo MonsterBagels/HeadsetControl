@@ -12,35 +12,34 @@ using namespace std::string_view_literals;
 namespace headsetcontrol {
 
 /**
- * @brief Audeze Maxwell Gaming Headset
+ * @brief Audeze Maxwell 2 Gaming Headset
  *
  * Features:
  * - Sidetone (32 levels)
  * - Inactive time with discrete levels
- * - Volume limiter
  * - Equalizer presets (10 total: 6 default + 4 custom)
  * - Battery status
  * - Chatmix
  * - Voice prompts
+ * - Mic noise filter
  *
  * Special Requirements:
- * - Complex 18-packet initialization sequence
- * - 60ms delay between packets (mimics official software)
+ * - Complex 21-packet initialization sequence
+ * - 52ms delay between packets (mimics official software)
  * - Uses hid_get_input_report for responses
  */
-class AudezeMaxwell : public HIDDevice {
+class AudezeMaxwell2 : public HIDDevice {
 public:
-    static constexpr std::array<uint16_t, 3> SUPPORTED_PRODUCT_IDS {
-        0x4b19, // Maxwell
-        0x4b18, // Maxwell Xbox Dongle
+    static constexpr std::array<uint16_t, 1> SUPPORTED_PRODUCT_IDS {
+        0x4b29 // Maxwell 2 (PlayStation/PC version)
     };
 
     static constexpr int MSG_SIZE  = 62;
     static constexpr int REPORT_ID = 0x06;
-    static constexpr int DELAY_US  = 60000; // 60ms
+    static constexpr int DELAY_US  = 52000; // 52ms
 
-    // 18-packet initialization sequence (12 unique + 5 status + 1 final)
-    static constexpr std::array<std::array<uint8_t, MSG_SIZE>, 13> UNIQUE_REQUESTS { { { 0x6, 0x8, 0x80, 0x5, 0x5a, 0x4, 0x0, 0x1, 0x9, 0x20 },
+    // 21-packet initialization sequence (14 unique + 6 status + 1 final)
+    static constexpr std::array<std::array<uint8_t, MSG_SIZE>, 15> UNIQUE_REQUESTS { { { 0x06, 0x08, 0x80, 0x05, 0x5A, 0x04, 0x00, 0x01, 0x09, 0x20 },
         { 0x06, 0x08, 0x80, 0x05, 0x5A, 0x04, 0x00, 0x01, 0x09, 0x25 },
         { 0x06, 0x07, 0x80, 0x05, 0x5A, 0x03, 0x00, 0x07, 0x1C },
         { 0x06, 0x08, 0x80, 0x05, 0x5A, 0x04, 0x00, 0x01, 0x09, 0x28 },
@@ -51,16 +50,19 @@ public:
         { 0x06, 0x08, 0x80, 0x05, 0x5A, 0x04, 0x00, 0x01, 0x09, 0x2C },
         { 0x06, 0x08, 0x80, 0x05, 0x5A, 0x04, 0x00, 0x01, 0x09 },
         { 0x06, 0x08, 0x80, 0x05, 0x5A, 0x04, 0x00, 0x83, 0x2C, 0x0B },
+        { 0x06, 0x08, 0x80, 0x05, 0x5A, 0x04, 0x00, 0x01, 0x09, 0x24 },
         { 0x06, 0x08, 0x80, 0x05, 0x5A, 0x04, 0x00, 0x01, 0x09, 0x2F },
+        { 0x06, 0x09, 0x80, 0x05, 0x5A, 0x05, 0x00, 0x00, 0x09, 0x25, 0x00, 0x7A },
         { 0x06, 0x07, 0x80, 0x05, 0x5A, 0x03, 0x00, 0xD6, 0x0C } } };
 
-    // Status requests (5 packets for battery, sidetone, chatmix info)
-    static constexpr std::array<std::array<uint8_t, MSG_SIZE>, 5> STATUS_REQUESTS { {
-        { 0x06, 0x08, 0x80, 0x05, 0x5A, 0x04, 0x00, 0x01, 0x09, 0x22 }, // Battery, Sidetone enabled
-        { 0x06, 0x08, 0x80, 0x05, 0x5A, 0x04, 0x00, 0x01, 0x09 }, // Battery, Mic
-        { 0x06, 0x08, 0x80, 0x05, 0x5A, 0x04, 0x00, 0x83, 0x2C, 0x0B }, // Battery
-        { 0x06, 0x08, 0x80, 0x05, 0x5A, 0x04, 0x00, 0x01, 0x09, 0x2C }, // Battery, ChatMix
-        { 0x06, 0x08, 0x80, 0x05, 0x5A, 0x04, 0x00, 0x83, 0x2C, 0x07 } // Battery, Sidetone Level
+    // Status requests (6 packets for battery, sidetone, chatmix info)
+    static constexpr std::array<std::array<uint8_t, MSG_SIZE>, 6> STATUS_REQUESTS { {
+        { 0x06, 0x08, 0x80, 0x05, 0x5A, 0x04, 0x00, 0x01, 0x09, 0x22 }, // Mic status
+        { 0x06, 0x08, 0x80, 0x05, 0x5A, 0x04, 0x00, 0x01, 0x09 }, // EQ
+        { 0x06, 0x08, 0x80, 0x05, 0x5A, 0x04, 0x00, 0x83, 0x2C, 0x0B }, // GameCat mix
+        { 0x06, 0x08, 0x80, 0x05, 0x5A, 0x04, 0x00, 0x01, 0x09, 0x24 }, // AINF
+        { 0x06, 0x08, 0x80, 0x05, 0x5A, 0x04, 0x00, 0x01, 0x09, 0x2C }, // Sidetone level
+        { 0x06, 0x08, 0x80, 0x05, 0x5A, 0x04, 0x00, 0x83, 0x2C, 0x07 } // Sidetone status
     } };
 
     constexpr uint16_t getVendorId() const override
@@ -75,19 +77,19 @@ public:
 
     std::string_view getDeviceName() const override
     {
-        return "Audeze Maxwell"sv;
+        return "Audeze Maxwell 2"sv;
     }
 
     constexpr int getCapabilities() const override
     {
-        return B(CAP_SIDETONE) | B(CAP_INACTIVE_TIME) | B(CAP_VOLUME_LIMITER)
-            | B(CAP_EQUALIZER_PRESET) | B(CAP_BATTERY_STATUS) | B(CAP_CHATMIX_STATUS)
-            | B(CAP_VOICE_PROMPTS);
+        return B(CAP_SIDETONE) | B(CAP_INACTIVE_TIME) | B(CAP_EQUALIZER_PRESET)
+            | B(CAP_BATTERY_STATUS) | B(CAP_CHATMIX_STATUS) | B(CAP_VOICE_PROMPTS)
+            | B(CAP_NOISE_FILTER);
     }
 
     constexpr capability_detail getCapabilityDetail([[maybe_unused]] enum capabilities cap) const override
     {
-        return { .usagepage = 0xff13, .usageid = 0x1, .interface_id = 0 };
+        return { .usagepage = 0xff13, .usageid = 0x1, .interface_id = 5 };
     }
 
     static constexpr int EQUALIZER_PRESETS_COUNT = 10;
@@ -99,9 +101,20 @@ public:
 
 private:
     /**
-     * @brief Send request and get input report with 60ms delay
+     * @brief Get comprehensive device status (battery, chatmix, sidetone, filter)
      *
-     * Audeze HQ sends packets at ~60ms intervals. Sending too quickly causes issues.
+     * Must send all 6 status requests to get consistent information
+     */
+    struct MaxwellStatus {
+        BatteryResult battery;
+        int chatmix_level;
+        int sidetone_level;
+        int filter_level;
+        bool sidetone_enabled;
+    };
+
+    /**
+     * @brief Send request and get input report with 52ms delay to match Audeze HQ.
      */
     Result<void> sendGetInputReport(hid_device* device_handle, std::span<const uint8_t> data, std::span<uint8_t> buff = {}) const
     {
@@ -129,22 +142,30 @@ private:
     }
 
     /**
-     * @brief Get comprehensive device status (battery, chatmix, sidetone)
-     *
-     * Must send all 5 status requests to get consistent information
+     * @brief Maxwell 2 only shares battery reading after initialization.
+     * So running initialization every time and saving battery readout.
      */
-    struct MaxwellStatus {
-        BatteryResult battery;
-        int chatmix_level;
-        int sidetone_level;
-        bool sidetone_enabled;
-    };
-
     Result<MaxwellStatus> getDeviceStatus(hid_device* device_handle) const
     {
-        std::array<std::array<uint8_t, MSG_SIZE>, 5> status_buffs {};
+        std::array<std::array<uint8_t, MSG_SIZE>, 6> status_buffs {};
+        std::array<uint8_t, MSG_SIZE> init_response {};
 
-        for (int i = 0; i < 5; ++i) {
+        // Send first 14 init packets, discard responses
+        for (int i = 0; i < 14; ++i) {
+            auto result = sendGetInputReport(device_handle, UNIQUE_REQUESTS[i]);
+            if (!result) {
+                return result.error();
+            }
+        }
+
+        // Send last init packet and save response, it contains battery level
+        auto result = sendGetInputReport(device_handle, UNIQUE_REQUESTS[14], init_response);
+        if (!result) {
+            return result.error();
+        }
+
+        // Send the 6 status requests
+        for (int i = 0; i < 6; ++i) {
             auto result = sendGetInputReport(device_handle, STATUS_REQUESTS[i], status_buffs[i]);
             if (!result) {
                 return result.error();
@@ -153,7 +174,7 @@ private:
 
         MaxwellStatus status {};
 
-        // Parse battery (from first status response)
+        // Parse battery (from last initialization message)
         const auto& buff = status_buffs[0];
         if (buff[1] == 0x00) {
             status.battery.status        = BATTERY_UNAVAILABLE;
@@ -178,16 +199,8 @@ private:
         status.chatmix_level = map(status_buffs[3][12], 0, 20, 0, 128);
 
         // Parse sidetone (0-31 range)
-        status.sidetone_level   = map(status_buffs[4][12], 0, 31, 0, 128);
-        status.sidetone_enabled = status_buffs[0][12] != 0;
-
-        // If battery unavailable, run full init sequence
-        if (status.battery.status != BATTERY_AVAILABLE) {
-            for (int i = 0; i < 13; ++i) {
-                (void)sendGetInputReport(device_handle, UNIQUE_REQUESTS[i]);
-            }
-        }
-
+        status.sidetone_level   = map(status_buffs[5][12], 0, 31, 0, 128);
+        status.sidetone_enabled = status_buffs[5][12] != 0;
         return status;
     }
 
@@ -208,7 +221,7 @@ public:
         // Maxwell range: 0 to 31
         uint8_t mapped = map<uint8_t>(level, 0, 128, 0, 31);
 
-        std::array<uint8_t, MSG_SIZE> cmd { 0x6, 0x9, 0x80, 0x5, 0x5a, 0x5, 0x0, 0x0, 0x9, 0x2c, 0x0, mapped };
+        std::array<uint8_t, MSG_SIZE> cmd { 0x06, 0x09, 0x80, 0x05, 0x5A, 0x05, 0x00, 0x00, 0x09, 0x2C, 0x00, mapped };
 
         // Sidetone is enabled whenever level changes
         auto result = sendGetInputReport(device_handle, cmd);
@@ -218,7 +231,7 @@ public:
 
         if (mapped == 0) {
             // Toggle sidetone off
-            std::array<uint8_t, MSG_SIZE> toggle_cmd { 0x6, 0x9, 0x80, 0x5, 0x5a, 0x5, 0x0, 0x82, 0x2c, 0x7, 0x0, 0x1 };
+            std::array<uint8_t, MSG_SIZE> toggle_cmd { 0x06, 0x09, 0x80, 0x05, 0x5A, 0x05, 0x00, 0x82, 0x2C, 0x07, 0x00, 0x00 };
             result = sendGetInputReport(device_handle, toggle_cmd);
             if (!result) {
                 return result.error();
@@ -236,7 +249,7 @@ public:
 
     Result<InactiveTimeResult> setInactiveTime(hid_device* device_handle, uint8_t minutes) override
     {
-        std::array<uint8_t, MSG_SIZE> cmd { 0x6, 0x10, 0x80, 0x5, 0x5a, 0xc, 0x0, 0x82, 0x2c, 0x1, 0x0 };
+        std::array<uint8_t, MSG_SIZE> cmd { 0x06, 0x10, 0x80, 0x05, 0x5A, 0x0C, 0x00, 0x82, 0x2C, 0x01, 0x00 };
 
         if (minutes > 0) {
             // Round to supported values
@@ -282,6 +295,8 @@ public:
         };
     }
 
+    // It doesn't appear that the Maxwell 2 has a volume limiter. It doesn't appear
+    // in the Audeze software but keeping this just in case.
     Result<VolumeLimiterResult> setVolumeLimiter(hid_device* device_handle, bool enabled) override
     {
         std::array<uint8_t, MSG_SIZE> cmd { 0x6, 0x9, 0x80, 0x5, 0x5a, 0x5, 0x0, 0x0, 0x9, 0x28, 0x0, enabled ? uint8_t(0x88) : uint8_t(0x8e) };
@@ -348,6 +363,23 @@ public:
         }
 
         return EqualizerPresetResult { .preset = preset, .total_presets = EQUALIZER_PRESETS_COUNT };
+    }
+
+    Result<NoiseFilterResult> setNoiseFilter(hid_device* device_handle, uint8_t level) override
+    {
+        // Maxwell 2 has three levels for the noise filter: high, low, and
+        // off (2,1 and 0)
+        if (level > 2) {
+            return DeviceError::invalidParameter("Noise filter level must be 0, 1, or 2");
+        }
+        std::array<uint8_t, MSG_SIZE> cmd { 0x06, 0x09, 0x80, 0x05, 0x5A, 0x05, 0x00, 0x00, 0x09, 0x24, 0x00, level };
+
+        auto result = sendGetInputReport(device_handle, cmd);
+        if (!result) {
+            return result.error();
+        }
+
+        return NoiseFilterResult { .level = level };
     }
 };
 } // namespace headsetcontrol

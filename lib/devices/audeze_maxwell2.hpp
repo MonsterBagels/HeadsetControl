@@ -4,6 +4,8 @@
 #include "hid_device.hpp"
 #include <array>
 #include <chrono>
+#include <iomanip> // DEBUG
+#include <iostream> // DEBUG
 #include <string_view>
 #include <thread>
 
@@ -38,7 +40,7 @@ public:
     static constexpr int REPORT_ID = 0x06;
     static constexpr int DELAY_US  = 52000; // 52ms
 
-    // 21-packet initialization sequence (14 unique + 6 status + 1 final)
+    // 15-packet initialization sequence
     static constexpr std::array<std::array<uint8_t, MSG_SIZE>, 15> UNIQUE_REQUESTS { { { 0x06, 0x08, 0x80, 0x05, 0x5A, 0x04, 0x00, 0x01, 0x09, 0x20 },
         { 0x06, 0x08, 0x80, 0x05, 0x5A, 0x04, 0x00, 0x01, 0x09, 0x25 },
         { 0x06, 0x07, 0x80, 0x05, 0x5A, 0x03, 0x00, 0x07, 0x1C },
@@ -55,15 +57,13 @@ public:
         { 0x06, 0x09, 0x80, 0x05, 0x5A, 0x05, 0x00, 0x00, 0x09, 0x25, 0x00, 0x7A },
         { 0x06, 0x07, 0x80, 0x05, 0x5A, 0x03, 0x00, 0xD6, 0x0C } } };
 
-    // Status requests (6 packets for battery, sidetone, chatmix info)
-    static constexpr std::array<std::array<uint8_t, MSG_SIZE>, 6> STATUS_REQUESTS { {
-        { 0x06, 0x08, 0x80, 0x05, 0x5A, 0x04, 0x00, 0x01, 0x09, 0x22 }, // Mic status
-        { 0x06, 0x08, 0x80, 0x05, 0x5A, 0x04, 0x00, 0x01, 0x09 }, // EQ
-        { 0x06, 0x08, 0x80, 0x05, 0x5A, 0x04, 0x00, 0x83, 0x2C, 0x0B }, // GameCat mix
-        { 0x06, 0x08, 0x80, 0x05, 0x5A, 0x04, 0x00, 0x01, 0x09, 0x24 }, // AINF
-        { 0x06, 0x08, 0x80, 0x05, 0x5A, 0x04, 0x00, 0x01, 0x09, 0x2C }, // Sidetone level
-        { 0x06, 0x08, 0x80, 0x05, 0x5A, 0x04, 0x00, 0x83, 0x2C, 0x07 } // Sidetone status
-    } };
+    // 6 packet status request sequence
+    static constexpr std::array<std::array<uint8_t, MSG_SIZE>, 6> STATUS_REQUESTS { { { 0x06, 0x08, 0x80, 0x05, 0x5A, 0x04, 0x00, 0x01, 0x09, 0x22 },
+        { 0x06, 0x08, 0x80, 0x05, 0x5A, 0x04, 0x00, 0x01, 0x09 },
+        { 0x06, 0x08, 0x80, 0x05, 0x5A, 0x04, 0x00, 0x83, 0x2C, 0x0B },
+        { 0x06, 0x08, 0x80, 0x05, 0x5A, 0x04, 0x00, 0x01, 0x09, 0x24 },
+        { 0x06, 0x08, 0x80, 0x05, 0x5A, 0x04, 0x00, 0x01, 0x09, 0x2C },
+        { 0x06, 0x08, 0x80, 0x05, 0x5A, 0x04, 0x00, 0x83, 0x2C, 0x07 } } };
 
     constexpr uint16_t getVendorId() const override
     {
@@ -101,7 +101,7 @@ public:
 
 private:
     /**
-     * @brief Get comprehensive device status (battery, chatmix, sidetone, filter)
+     * @brief Get comprehensive device status (battery, chatmix, sidetone, AINF, filter)
      *
      * Must send all 6 status requests to get consistent information
      */
@@ -109,8 +109,9 @@ private:
         BatteryResult battery;
         int chatmix_level;
         int sidetone_level;
-        int filter_level;
+        int ainf_level;
         bool sidetone_enabled;
+        bool mic_muted;
     };
 
     /**
@@ -142,29 +143,23 @@ private:
     }
 
     /**
-     * @brief Maxwell 2 only shares battery reading after initialization.
-     * So running initialization every time and saving battery readout.
+     * @brief Get comprehensive device status (battery, chatmix, sidetone, etc.)
+     *
+     * Must send all initialization and status requests packets to get consistent information
      */
     Result<MaxwellStatus> getDeviceStatus(hid_device* device_handle) const
     {
         std::array<std::array<uint8_t, MSG_SIZE>, 6> status_buffs {};
-        std::array<uint8_t, MSG_SIZE> init_response {};
 
-        // Send first 14 init packets, discard responses
-        for (int i = 0; i < 14; ++i) {
+        // Send UNIQUE_REQUESTS packets
+        for (int i = 0; i < 15; ++i) {
             auto result = sendGetInputReport(device_handle, UNIQUE_REQUESTS[i]);
             if (!result) {
                 return result.error();
             }
         }
 
-        // Send last init packet and save response, it contains battery level
-        auto result = sendGetInputReport(device_handle, UNIQUE_REQUESTS[14], init_response);
-        if (!result) {
-            return result.error();
-        }
-
-        // Send the 6 status requests
+        // Send STATUS_REQUESTS packets
         for (int i = 0; i < 6; ++i) {
             auto result = sendGetInputReport(device_handle, STATUS_REQUESTS[i], status_buffs[i]);
             if (!result) {
@@ -172,15 +167,24 @@ private:
             }
         }
 
+        // Status_buffs structure
+        // status_buffs[0] = battery_status
+        // status_buffs[1] = mic_status
+        // status_buffs[2] = eq
+        // status_buffs[3] = chatmix
+        // status_buffs[4] = ainf_status
+        // status_buffs[5] = sidetone_level
+
         MaxwellStatus status {};
 
-        // Parse battery (from last initialization message)
         const auto& buff = status_buffs[0];
-        if (buff[1] == 0x00) {
+
+        // Parse battery level
+        if (buff[0] == 0x00) {
             status.battery.status        = BATTERY_UNAVAILABLE;
             status.battery.level_percent = -1;
         } else {
-            // Find battery level in response
+            // Find battery level in response (level is first byte after d6 0c 00 00 in packet)
             for (int i = 0; i < MSG_SIZE - 4; ++i) {
                 if (buff[i] == 0xD6 && buff[i + 1] == 0x0C && buff[i + 2] == 0x00 && buff[i + 3] == 0x00) {
                     status.battery.level_percent = buff[i + 4];
@@ -188,12 +192,10 @@ private:
                     break;
                 }
             }
-
-            // Check microphone status (note: BatteryResult has mic_status field)
-            if (status_buffs[1][12] == 0xFF) {
-                status.battery.mic_status = MICROPHONE_UP;
-            }
         }
+
+        // Parse microphone mute status (FF = unmuted)
+        status.mic_muted = status_buffs[1][12] != 0xFF;
 
         // Parse chatmix (0-20 range, center at 10)
         status.chatmix_level = map(status_buffs[3][12], 0, 20, 0, 128);
@@ -201,6 +203,7 @@ private:
         // Parse sidetone (0-31 range)
         status.sidetone_level   = map(status_buffs[5][12], 0, 31, 0, 128);
         status.sidetone_enabled = status_buffs[5][12] != 0;
+
         return status;
     }
 
@@ -293,20 +296,6 @@ public:
             .min_minutes = 0,
             .max_minutes = 255
         };
-    }
-
-    // It doesn't appear that the Maxwell 2 has a volume limiter. It doesn't appear
-    // in the Audeze software but keeping this just in case.
-    Result<VolumeLimiterResult> setVolumeLimiter(hid_device* device_handle, bool enabled) override
-    {
-        std::array<uint8_t, MSG_SIZE> cmd { 0x6, 0x9, 0x80, 0x5, 0x5a, 0x5, 0x0, 0x0, 0x9, 0x28, 0x0, enabled ? uint8_t(0x88) : uint8_t(0x8e) };
-
-        auto result = sendGetInputReport(device_handle, cmd);
-        if (!result) {
-            return result.error();
-        }
-
-        return VolumeLimiterResult { .enabled = enabled };
     }
 
     Result<VoicePromptsResult> setVoicePrompts(hid_device* device_handle, bool enabled) override

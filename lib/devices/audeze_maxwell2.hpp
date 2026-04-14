@@ -4,8 +4,6 @@
 #include "hid_device.hpp"
 #include <array>
 #include <chrono>
-#include <iomanip> // DEBUG
-#include <iostream> // DEBUG
 #include <string_view>
 #include <thread>
 
@@ -27,7 +25,7 @@ namespace headsetcontrol {
  *
  * Special Requirements:
  * - Complex 21-packet initialization sequence
- * - 52ms delay between packets (mimics official software)
+ * - 60ms delay between packets (official software sends at 52ms but 60ms is more reliable in testing)
  * - Uses hid_get_input_report for responses
  */
 class AudezeMaxwell2 : public HIDDevice {
@@ -38,7 +36,7 @@ public:
 
     static constexpr int MSG_SIZE  = 62;
     static constexpr int REPORT_ID = 0x06;
-    static constexpr int DELAY_US  = 52000; // 52ms
+    static constexpr int DELAY_US  = 60000; // 60ms
 
     // 15-packet initialization sequence
     static constexpr std::array<std::array<uint8_t, MSG_SIZE>, 15> UNIQUE_REQUESTS { { { 0x06, 0x08, 0x80, 0x05, 0x5A, 0x04, 0x00, 0x01, 0x09, 0x20 },
@@ -101,7 +99,7 @@ public:
 
 private:
     /**
-     * @brief Get comprehensive device status (battery, chatmix, sidetone, AINF, filter)
+     * @brief Get device status (battery, chatmix, sidetone, mic mute)
      *
      * Must send all 6 status requests to get consistent information
      */
@@ -109,13 +107,12 @@ private:
         BatteryResult battery;
         int chatmix_level;
         int sidetone_level;
-        int ainf_level;
         bool sidetone_enabled;
         bool mic_muted;
     };
 
     /**
-     * @brief Send request and get input report with 52ms delay to match Audeze HQ.
+     * @brief Send request and get input report with 60ms delay to match Audeze HQ.
      */
     Result<void> sendGetInputReport(hid_device* device_handle, std::span<const uint8_t> data, std::span<uint8_t> buff = {}) const
     {
@@ -172,12 +169,16 @@ private:
         // status_buffs[1] = mic_status
         // status_buffs[2] = eq
         // status_buffs[3] = chatmix
-        // status_buffs[4] = ainf_status
+        // status_buffs[4] = ainf_level
         // status_buffs[5] = sidetone_level
 
         MaxwellStatus status {};
 
         const auto& buff = status_buffs[0];
+
+        // Initialize battery status as unavailable
+        status.battery.status        = BATTERY_UNAVAILABLE;
+        status.battery.level_percent = -1;
 
         // Parse battery level
         if (buff[0] == 0x00) {
@@ -254,9 +255,14 @@ public:
     {
         std::array<uint8_t, MSG_SIZE> cmd { 0x06, 0x10, 0x80, 0x05, 0x5A, 0x0C, 0x00, 0x82, 0x2C, 0x01, 0x00 };
 
+        /* The headset supports auto shutdown times up to 6 hours or 360 minutes but since this uses an 8-bit
+         * integer it is limited to 255. Here it is truncated to 240 minutes (4 hours) which is the closest
+         * option from the Audeze software.
+         */
+
         if (minutes > 0) {
             // Round to supported values
-            uint16_t final_minutes = 360;
+            uint16_t final_minutes = 240;
             if (minutes <= 5)
                 final_minutes = 5;
             else if (minutes <= 10)
@@ -294,7 +300,7 @@ public:
         return InactiveTimeResult {
             .minutes     = minutes,
             .min_minutes = 0,
-            .max_minutes = 255
+            .max_minutes = 240
         };
     }
 

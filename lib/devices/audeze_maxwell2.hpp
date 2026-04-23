@@ -107,6 +107,8 @@ private:
         BatteryResult battery;
         int chatmix_level;
         int sidetone_level;
+        int eq_setting;
+        int ainf_level;
         bool sidetone_enabled;
         bool mic_muted;
     };
@@ -198,8 +200,17 @@ private:
         // Parse microphone mute status (FF = unmuted)
         status.mic_muted = status_buffs[1][12] != 0xFF;
 
+        // Parse current eq setting
+        // 1 = Audeze, 2 = Treble Boost, 3 = Bass Boost, 4 = Immersive, 5 = Competition,
+        // 6 = Footsteps, 7 = EQ1, 8 = EQ2, 9 = EQ3, 10 = EQ4
+        status.eq_setting = status_buffs[2][12];
+
         // Parse chatmix (0-20 range, center at 10)
         status.chatmix_level = map(status_buffs[3][12], 0, 20, 0, 128);
+
+        // Parse current mic noise filter level
+        // 0 = Off, 1 = Low, 2 = High
+        status.ainf_level = status_buffs[4][12];
 
         // Parse sidetone (0-31 range)
         status.sidetone_level   = map(status_buffs[5][12], 0, 31, 0, 128);

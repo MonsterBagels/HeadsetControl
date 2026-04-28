@@ -22,9 +22,9 @@ A cross-platform tool to control USB gaming headsets on **Linux**, **macOS**, an
 | Logitech G533 | All | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |   |
 | Logitech G535 | All | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |   |
 | Logitech G633/G635/G733/G933/G935 | All | x | x |   | x |   |   |   |   |   |   |   |   |   |   |   |   |   |
-| Logitech G432/G433 | All | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
+| Logitech G431/G432/G433 | All | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 | Logitech G930 | All | x | x |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
-| Logitech G PRO X 2 LIGHTSPEED | All | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |   |
+| Logitech G PRO X 2 LIGHTSPEED | All | x | x |   |   | x |   |   |   | x | x | x |   |   |   |   |   |   |
 | Logitech G PRO Series | All | x | x |   |   | x |   |   |   |   |   |   |   |   |   |   |   |   |
 | Logitech Zone Wired/Zone 750 | All | x |   |   |   |   |   | x | x |   |   |   |   |   |   |   |   |   |
 | Corsair Headset Device | All | x | x | x | x |   |   |   |   |   |   |   |   |   |   |   |   |   |
@@ -253,7 +253,8 @@ headsetcontrol --test-device -b
 - [HeadsetControl-MacOSTray](https://github.com/ChrisLauinger77/HeadsetControl-MacOSTray) - Menu bar app (macOS 14+)
 
 ### Windows
-- [QontrolPanel](https://github.com/Odizinne/QontrolPanel) - Quick access / settings panel (Qt C++/QML, also works on Linux)
+- [QontrolPanel](https://github.com/Odizinne/QontrolPanel) - Quick access / settings panel (Qt C++/QML, also works on Linux) - ARCHIVED
+- [QontrolPanel](https://github.com/ChrisLauinger77/QontrolPanel) - Quick access / settings panel (Qt C++/QML, also works on Linux) - FORK from Odizinne
 - [HeadsetControl-GUI](https://github.com/LeoKlaus/HeadsetControl-GUI) - Simple GUI (Qt C++)
 - [HeadsetControl-SystemTray](https://github.com/zampierilucas/HeadsetControl-SystemTray) - System tray (Python)
 - [headset-battery-indicator](https://github.com/aarol/headset-battery-indicator) - Native tray icon (Rust)

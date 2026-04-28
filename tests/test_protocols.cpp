@@ -12,6 +12,7 @@
 #include "device.hpp"
 #include "devices/corsair_device.hpp"
 #include "devices/logitech_gpro_x2_lightspeed.hpp"
+#include "devices/protocols/logitech_centurion_protocol.hpp"
 #include "devices/protocols/hidpp_protocol.hpp"
 #include "devices/protocols/logitech_calibrations.hpp"
 #include "devices/protocols/steelseries_protocol.hpp"
@@ -335,6 +336,142 @@ void testLogitechProX2BatteryOutOfRange()
     std::cout << "    [OK] Logitech PRO X2 battery out-of-range rejection verified" << std::endl;
 }
 
+void testLogitechProX2CenturionBatteryParsing()
+{
+    std::cout << "  Testing Logitech PRO X2 Centurion battery parsing..." << std::endl;
+
+    std::array<uint8_t, 3> charging_v1 { 42, 42, 0x01 };
+    auto charging_v1_result = LogitechGProX2Lightspeed::parseCenturionBatteryResponse(charging_v1);
+    ASSERT_TRUE(charging_v1_result.hasValue(), "Centurion charging state 0x01 should parse successfully");
+    ASSERT_EQ(BATTERY_CHARGING, charging_v1_result->status, "Centurion charging state 0x01 should map to charging");
+
+    std::array<uint8_t, 3> charging { 87, 87, 0x02 };
+    auto charging_result = LogitechGProX2Lightspeed::parseCenturionBatteryResponse(charging);
+    ASSERT_TRUE(charging_result.hasValue(), "Centurion charging response should parse successfully");
+    ASSERT_EQ(87, charging_result->level_percent, "Centurion battery percentage should use byte 0");
+    ASSERT_EQ(BATTERY_CHARGING, charging_result->status, "Centurion charging state 0x02 should map to charging");
+
+    std::array<uint8_t, 3> full { 100, 100, 0x03 };
+    auto full_result = LogitechGProX2Lightspeed::parseCenturionBatteryResponse(full);
+    ASSERT_TRUE(full_result.hasValue(), "Centurion full response should parse successfully");
+    ASSERT_EQ(BATTERY_AVAILABLE, full_result->status, "Centurion full state should map to available");
+
+    std::array<uint8_t, 1> invalid { 101 };
+    auto invalid_result = LogitechGProX2Lightspeed::parseCenturionBatteryResponse(invalid);
+    ASSERT_TRUE(!invalid_result.hasValue(), "Centurion battery level above 100 should be rejected");
+
+    std::cout << "    [OK] Logitech PRO X2 Centurion battery parsing verified" << std::endl;
+}
+
+void testCenturionFrameBuilding()
+{
+    std::cout << "  Testing Logitech Centurion frame building..." << std::endl;
+
+    std::array<uint8_t, 3> payload { 0x02, 0x11, 0x99 };
+    auto frame = protocols::LogitechCenturionProtocol::buildCenturionFrame(payload);
+
+    ASSERT_EQ(0x51, frame[0], "Centurion frame should start with report ID 0x51");
+    ASSERT_EQ(4, frame[1], "CPL length should include the flags byte");
+    ASSERT_EQ(0, frame[2], "Single-frame requests should have flags 0");
+    ASSERT_EQ(0x02, frame[3], "Payload should start at byte 3");
+    ASSERT_EQ(0x99, frame[5], "Payload bytes should be copied unchanged");
+
+    std::cout << "    [OK] Logitech Centurion frame building verified" << std::endl;
+}
+
+void testCenturionBridgeResponseParsing()
+{
+    std::cout << "  Testing Logitech Centurion bridge response parsing..." << std::endl;
+
+    std::array<uint8_t, 9> reply { 0x07, 0x10, 0x00, 0x05, 0x00, 0x04, 0x20, 0x2A, 0xF8 };
+    ASSERT_TRUE(protocols::LogitechCenturionProtocol::isBridgeResponseFor(reply, 0x04), "Bridge event should match the requested sub-feature index");
+
+    auto parsed = protocols::LogitechCenturionProtocol::parseBridgeResponse(reply);
+    ASSERT_TRUE(parsed.hasValue(), "Valid bridge response should parse successfully");
+    ASSERT_EQ(2, static_cast<int>(parsed->size()), "Bridge response should return only sub-device payload bytes");
+    ASSERT_EQ(0x2A, (*parsed)[0], "Parsed payload should preserve the first response byte");
+    ASSERT_EQ(0xF8, (*parsed)[1], "Parsed payload should preserve the second response byte");
+
+    std::array<uint8_t, 9> error_reply { 0x07, 0x10, 0x00, 0x05, 0x00, 0xFF, 0x04, 0x20, 0x01 };
+    ASSERT_TRUE(protocols::LogitechCenturionProtocol::isBridgeResponseFor(error_reply, 0x04), "Error bridge response should still match the requested sub-feature index");
+    auto error_parse = protocols::LogitechCenturionProtocol::parseBridgeResponse(error_reply);
+    ASSERT_TRUE(!error_parse.hasValue(), "Sub-device error responses should fail parsing");
+
+    std::cout << "    [OK] Logitech Centurion bridge response parsing verified" << std::endl;
+}
+
+void testCenturionBridgeMessageSizeLimit()
+{
+    std::cout << "  Testing Logitech Centurion bridge message size limit..." << std::endl;
+
+    std::vector<uint8_t> params_at_limit(0x0FFF - 3, 0x5A);
+    auto message_at_limit = protocols::LogitechCenturionProtocol::buildBridgeSubMessageVector(0x04, 0x10, params_at_limit);
+    ASSERT_EQ(0x0FFF, static_cast<int>(message_at_limit.size()), "Bridge sub-message should reach the 12-bit size limit");
+    ASSERT_TRUE(protocols::LogitechCenturionProtocol::isBridgeSubMessageSizeSupported(message_at_limit.size()),
+        "Bridge sub-message at the 12-bit size limit should be accepted");
+
+    std::vector<uint8_t> params_over_limit(0x1000 - 3, 0x5A);
+    auto message_over_limit = protocols::LogitechCenturionProtocol::buildBridgeSubMessageVector(0x04, 0x10, params_over_limit);
+    ASSERT_EQ(0x1000, static_cast<int>(message_over_limit.size()), "Bridge sub-message should exceed the 12-bit size limit by one byte");
+    ASSERT_TRUE(!protocols::LogitechCenturionProtocol::isBridgeSubMessageSizeSupported(message_over_limit.size()),
+        "Bridge sub-message above the 12-bit size limit should be rejected");
+
+    std::cout << "    [OK] Logitech Centurion bridge message size limit verified" << std::endl;
+}
+
+void testLogitechProX2EqualizerInfoRequiresDescriptor()
+{
+    std::cout << "  Testing Logitech PRO X2 equalizer info cache behavior..." << std::endl;
+
+    LogitechGProX2Lightspeed device;
+    ASSERT_TRUE(!device.getEqualizerInfo().has_value(), "Equalizer info should be unavailable before the descriptor is read");
+    ASSERT_TRUE(!device.getParametricEqualizerInfo().has_value(), "Parametric equalizer info should be unavailable before the descriptor is read");
+
+    std::cout << "    [OK] Logitech PRO X2 equalizer info cache behavior verified" << std::endl;
+}
+
+void testLogitechProX2OnboardEqCoefficientQuantization()
+{
+    std::cout << "  Testing Logitech PRO X2 onboard EQ coefficient quantization..." << std::endl;
+
+    auto words = LogitechGProX2Lightspeed::quantizeOnboardEqCoefficientsForTest({
+        0.0,
+        -100.0 / 1073741824.0,
+        0.0,
+        0.0,
+        0.0,
+    });
+
+    ASSERT_EQ(10, static_cast<int>(words.size()), "Quantized coefficient block should contain 10 words");
+    ASSERT_EQ(0xFFFF, static_cast<int>(words[2]), "Negative coefficients should preserve sign extension in the upper word");
+    ASSERT_EQ(0xFF00, static_cast<int>(words[3]), "Negative coefficients should still clear the low byte");
+
+    std::cout << "    [OK] Logitech PRO X2 onboard EQ coefficient quantization verified" << std::endl;
+}
+
+void testLogitechProX2OnboardEqPayloadBuilding()
+{
+    std::cout << "  Testing Logitech PRO X2 onboard EQ payload building..." << std::endl;
+
+    auto payload = LogitechGProX2Lightspeed::buildOnboardEqPayloadForTest(0x00, {
+        { 80, 4, 1 },
+        { 240, 2, 1 },
+        { 750, 0, 1 },
+        { 2200, 0, 1 },
+        { 6600, 0, 1 },
+    });
+
+    ASSERT_TRUE(payload.size() > 32, "Onboard EQ payload should include coefficient sections");
+    ASSERT_EQ(0x00, payload[0], "Onboard EQ payload should start with slot 0");
+    ASSERT_EQ(5, payload[1], "Onboard EQ payload should encode the band count");
+    ASSERT_EQ(0x00, payload[2], "First band frequency high byte should be preserved");
+    ASSERT_EQ(80, payload[3], "First band frequency low byte should be preserved");
+    ASSERT_EQ(4, payload[4], "First band gain should be preserved");
+    ASSERT_EQ(1, payload[5], "First band Q should be preserved");
+
+    std::cout << "    [OK] Logitech PRO X2 onboard EQ payload building verified" << std::endl;
+}
+
 // ============================================================================
 // SteelSeries Protocol Tests
 // ============================================================================
@@ -583,6 +720,13 @@ void runAllProtocolTests()
     runTest("Logitech PRO X2 Battery Parsing", testLogitechProX2BatteryPacketParsing);
     runTest("Logitech PRO X2 Power Event", testLogitechProX2PowerEventDetection);
     runTest("Logitech PRO X2 Battery Out-of-Range", testLogitechProX2BatteryOutOfRange);
+    runTest("Logitech PRO X2 Centurion Battery", testLogitechProX2CenturionBatteryParsing);
+    runTest("Logitech Centurion Frame Building", testCenturionFrameBuilding);
+    runTest("Logitech Centurion Bridge Parsing", testCenturionBridgeResponseParsing);
+    runTest("Logitech Centurion Bridge Size Limit", testCenturionBridgeMessageSizeLimit);
+    runTest("Logitech PRO X2 Equalizer Info Cache", testLogitechProX2EqualizerInfoRequiresDescriptor);
+    runTest("Logitech PRO X2 EQ Quantization", testLogitechProX2OnboardEqCoefficientQuantization);
+    runTest("Logitech PRO X2 Onboard EQ Payload", testLogitechProX2OnboardEqPayloadBuilding);
 
     std::cout << "\n=== SteelSeries Protocol ===" << std::endl;
     runTest("SteelSeries Packet Sizes", testSteelSeriesPacketSizes);

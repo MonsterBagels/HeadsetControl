@@ -125,8 +125,8 @@ protected:
         }
 
         const auto& response = *response_result;
-        auto end_time        = std::chrono::steady_clock::now();
-        auto duration        = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+        auto end_time  = std::chrono::steady_clock::now();
+        auto duration  = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
 
         // Parse charging status (byte 6: 0x01 = idle/discharging, 0x03 = charging)
         uint8_t state = response[6];

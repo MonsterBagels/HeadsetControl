@@ -74,7 +74,7 @@ namespace {
 class HeadsetImpl {
 public:
     HeadsetImpl(HIDDevice* device, uint16_t product_id,
-        bool is_test_device     = false,
+        bool is_test_device = false,
         std::string vendor_name = {}, std::string product_name = {})
         : device_(device)
         , product_id_(product_id)

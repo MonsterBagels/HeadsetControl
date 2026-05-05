@@ -357,14 +357,18 @@ void testCppTestDeviceMode()
             // Test parametric equalizer
             ASSERT_TRUE(headset.supports(CAP_PARAMETRIC_EQUALIZER), "Test device should support parametric EQ");
             ParametricEqualizerSettings peq_settings;
-            peq_settings.bands.push_back({ .frequency = 100,
-                .gain                                 = 3.0f,
-                .q_factor                             = 1.0f,
-                .type                                 = EqualizerFilterType::LowShelf });
-            peq_settings.bands.push_back({ .frequency = 1000,
-                .gain                                 = 0.0f,
-                .q_factor                             = 1.414f,
-                .type                                 = EqualizerFilterType::Peaking });
+            peq_settings.bands.push_back({
+                .frequency = 100,
+                .gain      = 3.0f,
+                .q_factor  = 1.0f,
+                .type      = EqualizerFilterType::LowShelf
+            });
+            peq_settings.bands.push_back({
+                .frequency = 1000,
+                .gain      = 0.0f,
+                .q_factor  = 1.414f,
+                .type      = EqualizerFilterType::Peaking
+            });
             auto peq_result = headset.setParametricEqualizer(peq_settings);
             ASSERT_TRUE(peq_result.hasValue(), "Parametric equalizer should return success");
 
@@ -520,7 +524,7 @@ void testVendorProductNames()
     headsetcontrol::enableTestDevice(true);
 
     // C++ API: verify test device names are non-empty and correct
-    auto headsets        = headsetcontrol::discover();
+    auto headsets = headsetcontrol::discover();
     bool foundTestDevice = false;
     for (auto& headset : headsets) {
         if (headset.vendorId() == 0xF00B && headset.productId() == 0xA00C) {

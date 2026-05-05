@@ -97,9 +97,9 @@ public:
         }
 
         // Check headset status
-        constexpr uint8_t HEADSET_OFFLINE                 = 0x01;
-        constexpr uint8_t HEADSET_CABLE_CHARGING          = 0x02;
-        [[maybe_unused]] constexpr uint8_t HEADSET_ONLINE = 0x08;
+        constexpr uint8_t HEADSET_OFFLINE                          = 0x01;
+        constexpr uint8_t HEADSET_CABLE_CHARGING                   = 0x02;
+        [[maybe_unused]] constexpr uint8_t HEADSET_ONLINE          = 0x08;
 
         uint8_t status_byte = response[15];
         if (status_byte == HEADSET_OFFLINE) {

@@ -266,7 +266,7 @@ void testLogitechProX2BatteryPacketParsing()
     ASSERT_EQ(87, result->level_percent, "Direct percentage should be parsed from byte 10");
     ASSERT_EQ(BATTERY_CHARGING, result->status, "Charging status should map from byte 12");
 
-    response[12]            = 0x00;
+    response[12] = 0x00;
     auto discharging_result = LogitechGProX2Lightspeed::parseBatteryResponse(response);
     ASSERT_TRUE(discharging_result.hasValue(), "Discharging packet should parse successfully");
     ASSERT_EQ(BATTERY_AVAILABLE, discharging_result->status, "Non-0x02 status should be available");
@@ -322,13 +322,13 @@ void testLogitechProX2BatteryOutOfRange()
     ASSERT_TRUE(!result.hasValue(), "Battery level 101 should be rejected as out of range");
 
     // Boundary: 100 should be valid
-    response[10]      = 100;
+    response[10] = 100;
     auto valid_result = LogitechGProX2Lightspeed::parseBatteryResponse(response);
     ASSERT_TRUE(valid_result.hasValue(), "Battery level 100 should be valid");
     ASSERT_EQ(100, valid_result->level_percent, "Battery level should be 100");
 
     // Boundary: 0 should be valid
-    response[10]     = 0;
+    response[10] = 0;
     auto zero_result = LogitechGProX2Lightspeed::parseBatteryResponse(response);
     ASSERT_TRUE(zero_result.hasValue(), "Battery level 0 should be valid");
     ASSERT_EQ(0, zero_result->level_percent, "Battery level should be 0");

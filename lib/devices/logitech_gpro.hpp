@@ -32,7 +32,7 @@ public:
             0x0aaa, // G PRO X variant 0
             0x0aba, // G PRO X variant 1
             0x0afb, // G PRO X2 variant 0
-            0x0afc // G PRO X2 variant 1
+            0x0afc  // G PRO X2 variant 1
         };
     }
 

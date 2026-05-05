@@ -24,7 +24,7 @@ namespace headsetcontrol {
  * - Mic noise filter
  *
  * Special Requirements:
- * - Complex 21-packet initialization sequence
+ * - 15-packet initialization sequence followed by 6 status requests
  * - 60ms delay between packets (official software sends at 52ms but 60ms is more reliable in testing)
  * - Uses hid_get_input_report for responses
  */

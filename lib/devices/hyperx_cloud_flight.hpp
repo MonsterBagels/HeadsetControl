@@ -67,7 +67,7 @@ public:
         // Polynomial curve for mid-range voltages
         double v = static_cast<double>(voltage);
         return static_cast<float>(0.00000002547505 * std::pow(v, 4) - 0.0003900299 * std::pow(v, 3)
-            + 2.238321 * std::pow(v, 2) - 5706.256 * v + 5452299.0);
+                                  + 2.238321 * std::pow(v, 2) - 5706.256 * v + 5452299.0);
     }
 
     // Rich Results V2 API

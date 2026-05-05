@@ -225,7 +225,7 @@ inline constexpr std::array<CapabilityDescriptor, NUM_CAPABILITIES> CAPABILITY_D
         .cap         = CAP_NOISE_FILTER,
         .type        = CAPABILITYTYPE_ACTION,
         .name        = "noise-filter",
-        .short_flag  = "-N",
+        .short_flag  = "",
         .description = "Set noise filter level",
         .min_value   = 0,
         .max_value   = 2,
